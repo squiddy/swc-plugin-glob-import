@@ -1,0 +1,24 @@
+{
+  "name": "@squiddy13/swc-plugin-glob-import",
+  "version": "0.0.1",
+  "description": "SWC Plugin for glob imports",
+  "author": "Reiner Gerecke <me@reinergerecke.de>",
+  "license": "MIT",
+  "keywords": [
+    "swc-plugin"
+  ],
+  "main": "swc_plugin_glob_import.wasm",
+  "scripts": {
+    "prepack": "cargo build-wasi --release && cp target/wasm32-wasi/release/swc_plugin_glob_import.wasm ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/squiddy/swc-plugin-glob-import.git"
+  },
+  "bugs": {
+    "url": "https://github.com/squiddy/swc-plugin-glob-import/issues"
+  },
+  "files": [
+    "swc_plugin_glob_import.wasm"
+  ]
+}
