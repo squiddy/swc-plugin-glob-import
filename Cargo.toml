@@ -2,7 +2,7 @@
 authors = ["Reiner Gerecke <me@reinergerecke.de>"]
 description = "SWC Plugin for glob imports"
 name = "swc-plugin-glob-import"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 publish = false
 
@@ -10,7 +10,9 @@ publish = false
 crate-type = ["cdylib"]
 
 [profile.release]
+codegen-units = 1
 lto = true
+strip = "symbols"
 
 [dependencies]
 glob = "0.3.0"
