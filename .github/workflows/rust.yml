@@ -1,0 +1,32 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - uses: actions-rs/cargo@v1
+      with:
+        command: test
+    - uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+    - uses: actions-rs/cargo@v1
+      with:
+        command: build-wasi
+    - name: rust-clippy-check
+      uses: actions-rs/clippy-check@v1.0.7
