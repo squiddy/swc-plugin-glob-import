@@ -1,6 +1,6 @@
 {
   "name": "@squiddy13/swc-plugin-glob-import",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "SWC Plugin for glob imports",
   "author": "Reiner Gerecke <me@reinergerecke.de>",
   "license": "MIT",

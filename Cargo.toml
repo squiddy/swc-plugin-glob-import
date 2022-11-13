@@ -2,7 +2,7 @@
 authors = ["Reiner Gerecke <me@reinergerecke.de>"]
 description = "SWC Plugin for glob imports"
 name = "swc-plugin-glob-import"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 publish = false
 
