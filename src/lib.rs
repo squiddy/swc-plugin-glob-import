@@ -1,9 +1,9 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use std::path::PathBuf;
-
 use glob::glob;
 use regex::{escape, Regex};
+use std::path::PathBuf;
+use std::str::FromStr;
 use swc_core::common::DUMMY_SP;
 use swc_core::ecma::ast::{
     BindingIdent, Decl, Expr, Ident, ImportDecl, ImportDefaultSpecifier, ImportSpecifier,
@@ -17,10 +17,12 @@ use swc_core::plugin::{
 };
 
 pub struct GlobImporter {
+    cwd: PathBuf,
     file_name: PathBuf,
     id_counter: usize,
 }
 
+#[derive(Debug)]
 struct WildcardImport {
     ident_import: Ident,
     ident_obj: String,
@@ -32,54 +34,57 @@ impl GlobImporter {
         decl.src.value.matches('*').count() == 1
     }
 
-    fn expand_wildcard(&mut self, decl: ImportDecl) -> Vec<WildcardImport> {
-        let binding = self.file_name.with_file_name(decl.src.value.to_string());
-        let pattern = binding.to_str().unwrap();
+    fn expand_wildcard(&mut self, decl: &ImportDecl) -> Vec<WildcardImport> {
+        let pattern = {
+            self.cwd
+                .join(self.file_name.clone())
+                .with_file_name(decl.src.value.to_string())
+        };
 
-        let re = Regex::new(&escape(pattern).replace(r"\*", "(.*)")).unwrap();
-
-        glob(pattern)
+        let re = Regex::new(&escape(&decl.src.value).replace(r"\*", "(.*)")).unwrap();
+        glob(pattern.to_str().unwrap())
             .expect("Failed to read glob pattern")
-            .filter_map(|e| e.ok())
-            .map(|path| {
-                let caps = re.captures(path.to_str().unwrap()).unwrap();
-                let variable_filename_part = caps.get(1).unwrap().as_str();
+            .map(|result| match result {
+                Ok(path) => {
+                    let caps = re.captures(path.to_str().unwrap()).unwrap();
+                    let variable_filename_part = caps.get(1).unwrap().as_str();
 
-                let relative_path = path
-                    .strip_prefix(self.file_name.parent().unwrap())
-                    .unwrap()
-                    .to_str()
-                    .unwrap();
+                    let xxx = self.cwd.join(self.file_name.parent().unwrap());
+                    let relative_path = path.strip_prefix(&xxx).unwrap().to_str().unwrap();
 
-                WildcardImport {
-                    ident_import: self.next_variable_id(),
-                    ident_obj: self.create_valid_property_name(variable_filename_part),
-                    import_src: format!("\"./{}\"", relative_path),
+                    WildcardImport {
+                        ident_import: self.next_variable_id(),
+                        ident_obj: self.create_valid_property_name(variable_filename_part),
+                        import_src: if relative_path.starts_with('.') {
+                            relative_path.to_string()
+                        } else {
+                            format!("./{}", relative_path)
+                        },
+                    }
                 }
+                Err(e) => panic!("{:?}", e),
             })
             .collect()
     }
 
     fn create_valid_property_name(&self, ident: &str) -> String {
-        let re = Regex::new(r"[^a-zA-Z0-9_]+").unwrap();
-        let re2 = Regex::new(r"_+").unwrap();
+        let re = regex::Regex::new(r"[^a-zA-Z0-9_]+").unwrap();
+        let re2 = regex::Regex::new(r"_+").unwrap();
 
         re2.replace_all(
             re.replace_all(&ident.replace('-', "_"), "")
-                .to_owned()
                 .trim_matches('_'),
             "_",
         )
         .into_owned()
     }
 
-    fn split_wildcard_import(&mut self, decl: ImportDecl) -> Vec<ModuleItem> {
-        let binding_foo = match decl.specifiers.first() {
-            Some(ImportSpecifier::Default(x)) => x.local.sym.to_string(),
+    fn split_wildcard_import(&mut self, decl: &ImportDecl) -> Vec<ModuleItem> {
+        let ident = match decl.specifiers.first() {
+            Some(ImportSpecifier::Default(x)) => x.local.clone(),
             Some(_) => panic!("TODO2"),
             None => panic!("TODO3"),
         };
-
         let mut results = vec![];
         let expanded = self.expand_wildcard(decl);
 
@@ -92,7 +97,7 @@ impl GlobImporter {
                 })],
                 src: Box::new(Str {
                     span: DUMMY_SP,
-                    raw: Some(import.import_src.clone().into()),
+                    raw: None,
                     value: import.import_src.clone().into(),
                 }),
                 type_only: false,
@@ -108,8 +113,8 @@ impl GlobImporter {
                 definite: false,
                 name: Pat::Ident(BindingIdent {
                     id: Ident {
-                        span: DUMMY_SP,
-                        sym: binding_foo.into(),
+                        span: ident.span,
+                        sym: ident.sym,
                         optional: false,
                     },
                     type_ann: None,
@@ -146,26 +151,26 @@ impl GlobImporter {
 
 impl Fold for GlobImporter {
     fn fold_module(&mut self, mut module: Module) -> Module {
-        let mut new_items: Vec<ModuleItem> = vec![];
-        for item in module.body {
-            match item {
+        module.body = module
+            .body
+            .iter()
+            .flat_map(|item| match item {
                 ModuleItem::ModuleDecl(ModuleDecl::Import(decl))
-                    if self.is_valid_wildcard_import(&decl) =>
+                    if self.is_valid_wildcard_import(decl) =>
                 {
-                    new_items.extend(self.split_wildcard_import(decl).into_iter());
+                    self.split_wildcard_import(decl)
                 }
-                _ => {
-                    new_items.push(item);
-                }
-            }
-        }
-        module.body = new_items;
+                _ => vec![item.clone()],
+            })
+            .collect();
+
         module
     }
 }
 
-pub fn glob_importer(file_name: PathBuf) -> GlobImporter {
+pub fn glob_importer(cwd: PathBuf, file_name: PathBuf) -> GlobImporter {
     GlobImporter {
+        cwd,
         file_name,
         id_counter: 0,
     }
@@ -176,9 +181,12 @@ pub fn process_transform(program: Program, metadata: TransformPluginProgramMetad
     let file_name = metadata
         .get_context(&TransformPluginMetadataContextKind::Filename)
         .map(PathBuf::from)
-        .expect("TODO");
+        .expect("Plugin requires filename metadata.");
 
-    let mut importer = glob_importer(file_name);
+    // swc mounts the current working directory under the /cwd path
+    let cwd = PathBuf::from_str("/cwd").unwrap();
+
+    let mut importer = glob_importer(cwd, file_name);
     program.fold_with(&mut importer)
 }
 
@@ -195,12 +203,13 @@ mod tests {
     #[fixture("tests/fixture/**/input.js")]
     fn fixture(input: PathBuf) {
         let output = input.with_file_name("output.js");
+        let cwd = input.parent().unwrap().to_path_buf();
         test_fixture(
             Default::default(),
             &|_| {
                 chain!(
                     resolver(Mark::new(), Mark::new(), false),
-                    glob_importer(input.clone())
+                    glob_importer(cwd.clone(), input.clone())
                 )
             },
             &input,

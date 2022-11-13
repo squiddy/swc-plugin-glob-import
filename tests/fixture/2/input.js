@@ -1,1 +1,1 @@
-import images from "foo*.png";
+import images from "./foo*.png";
