@@ -1,4 +1,16 @@
-#![allow(clippy::not_unsafe_ptr_arg_deref)]
+#![allow(
+    clippy::collapsible_else_if,
+    clippy::collapsible_if,
+    clippy::implicit_hasher,
+    clippy::match_same_arms,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions,
+    clippy::must_use_candidate,
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::not_unsafe_ptr_arg_deref
+)]
 
 use glob::glob;
 use regex::{escape, Regex};
@@ -30,7 +42,7 @@ struct WildcardImport {
 }
 
 impl GlobImporter {
-    fn is_valid_wildcard_import(&self, decl: &ImportDecl) -> bool {
+    fn is_valid_wildcard_import(decl: &ImportDecl) -> bool {
         decl.src.value.matches('*').count() == 1
     }
 
@@ -54,20 +66,20 @@ impl GlobImporter {
 
                     WildcardImport {
                         ident_import: self.next_variable_id(),
-                        ident_obj: self.create_valid_property_name(variable_filename_part),
+                        ident_obj: Self::create_valid_property_name(variable_filename_part),
                         import_src: if relative_path.starts_with('.') {
                             relative_path.to_string()
                         } else {
-                            format!("./{}", relative_path)
+                            format!("./{relative_path}")
                         },
                     }
                 }
-                Err(e) => panic!("{:?}", e),
+                Err(e) => panic!("{e:?}"),
             })
             .collect()
     }
 
-    fn create_valid_property_name(&self, ident: &str) -> String {
+    fn create_valid_property_name(ident: &str) -> String {
         let re = regex::Regex::new(r"[^a-zA-Z0-9_]+").unwrap();
         let re2 = regex::Regex::new(r"_+").unwrap();
 
@@ -88,7 +100,7 @@ impl GlobImporter {
         let mut results = vec![];
         let expanded = self.expand_wildcard(decl);
 
-        for import in expanded.iter() {
+        for import in &expanded {
             results.push(ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
                 span: DUMMY_SP,
                 specifiers: vec![ImportSpecifier::Default(ImportDefaultSpecifier {
@@ -102,7 +114,7 @@ impl GlobImporter {
                 }),
                 type_only: false,
                 asserts: None,
-            })))
+            })));
         }
 
         let url_map = ModuleItem::Stmt(Stmt::Decl(Decl::Var(Box::new(VarDecl {
@@ -156,7 +168,7 @@ impl Fold for GlobImporter {
             .iter()
             .flat_map(|item| match item {
                 ModuleItem::ModuleDecl(ModuleDecl::Import(decl))
-                    if self.is_valid_wildcard_import(decl) =>
+                    if Self::is_valid_wildcard_import(decl) =>
                 {
                     self.split_wildcard_import(decl)
                 }
