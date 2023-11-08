@@ -113,7 +113,7 @@ impl GlobImporter {
                     value: import.import_src.clone().into(),
                 }),
                 type_only: false,
-                asserts: None,
+                with: None,
             })));
         }
 
@@ -207,12 +207,11 @@ mod tests {
     use std::path::PathBuf;
     use swc_core::common::{chain, Mark};
     use swc_core::ecma::transforms::base::resolver;
-    use swc_core::ecma::transforms::testing::{test, test_fixture};
-    use swc_core::testing::fixture;
+    use swc_core::ecma::transforms::testing::test_fixture;
 
     use super::glob_importer;
 
-    #[fixture("tests/fixture/**/input.js")]
+    #[testing::fixture("tests/fixture/**/input.js")]
     fn fixture(input: PathBuf) {
         let output = input.with_file_name("output.js");
         let cwd = input.parent().unwrap().to_path_buf();
@@ -226,6 +225,7 @@ mod tests {
             },
             &input,
             &output,
+            Default::default(),
         );
     }
 }

@@ -2,7 +2,7 @@
 authors = ["Reiner Gerecke <me@reinergerecke.de>"]
 description = "SWC Plugin for glob imports"
 name = "swc-plugin-glob-import"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 publish = false
 
@@ -15,6 +15,7 @@ lto = true
 strip = "symbols"
 
 [dependencies]
-glob = "0.3.0"
-regex = "1.6.0"
-swc_core = { version = "0.29.*", features = ["plugin_transform", "testing"] }
+glob = "0.3.1"
+regex = "1.10.2"
+swc_core = { version = "0.82.*", features = ["ecma_plugin_transform"] }
+testing = "0.35.0"
